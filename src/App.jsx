@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { Mic, Send, Loader2, Kanban, StickyNote, AlertCircle, RefreshCw, LogOut, Users, Shield, ShieldOff } from 'lucide-react';
 
 const N8N_WEBHOOK_URL = 'https://niamarketing.app.n8n.cloud/webhook/task-manager';
+const N8N_WEBHOOK_TEST = 'https://niamarketing.app.n8n.cloud/webhook-test/task-manager';
 const API_BASE = 'https://aitodo-production-4145.up.railway.app/api';
 
 export default function App() {
@@ -307,32 +308,41 @@ function Dashboard({ user, logout }) {
     setLoading(true);
 
     try {
-      if (N8N_WEBHOOK_URL) {
-        // Timeout di 10s: se n8n non risponde, salviamo direttamente
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+      // Prova prima il webhook di produzione (3s timeout)
+      let n8nSuccess = false;
+      const tryWebhook = async (url, timeoutMs) => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), timeoutMs);
         try {
-          await fetch(N8N_WEBHOOK_URL, {
+          const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: inputText, text: inputText, content: inputText }),
-            signal: controller.signal
+            signal: ctrl.signal
           });
-          clearTimeout(timeout);
-          setTimeout(() => importDataFromDB(), 2500);
-        } catch (n8nErr) {
-          clearTimeout(timeout);
-          // Fallback: salva direttamente senza AI
-          console.warn('n8n non raggiungibile, salvo direttamente:', n8nErr.name);
-          const demoTask = { id: `proj_${Date.now()}`, title: inputText.substring(0, 50), desc: inputText, status: 'todo', tasks: [] };
-          await fetch(API_BASE + '/projects.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(demoTask) });
-          importDataFromDB();
-        }
+          clearTimeout(t);
+          return res.ok || res.status < 500;
+        } catch { clearTimeout(t); return false; }
+      };
+
+      n8nSuccess = await tryWebhook(N8N_WEBHOOK_URL, 3000);
+
+      // Se il webhook produzione non risponde, prova il webhook test (n8n aperto in browser)
+      if (!n8nSuccess) {
+        n8nSuccess = await tryWebhook(N8N_WEBHOOK_TEST, 3000);
+      }
+
+      if (n8nSuccess) {
+        // n8n ha preso in carico la richiesta → aspetta che salvi nel DB
+        setTimeout(() => importDataFromDB(), 3000);
       } else {
-        const demoTask = { id: `proj_${Date.now()}`, title: inputText.substring(0, 50), desc: inputText, status: 'todo', tasks: [] };
-        await fetch(API_BASE + '/projects.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(demoTask) });
+        // Fallback diretto: salva nel DB senza AI
+        console.warn('n8n non raggiungibile — salvataggio diretto');
+        const task = { id: `proj_${Date.now()}`, title: inputText.substring(0, 60), desc: inputText, status: 'todo', tasks: [] };
+        await fetch(API_BASE + '/projects.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
         importDataFromDB();
       }
+
       setInputText('');
     } catch (error) {
       console.error(error);
