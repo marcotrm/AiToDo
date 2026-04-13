@@ -113,11 +113,14 @@ app.get('/api/projects.php', (req, res) => {
 });
 
 app.post('/api/projects.php', (req, res) => {
-  const data = req.body;
-  const title = data.title || data.titolo || 'Progetto';
-  const desc = data.desc || data.descrizione || data.text || '';
-  const status = data.status || 'todo';
-  const id = data.id || `proj_${Date.now()}`;
+  const raw = req.body;
+  // n8n invia {categoria, tipo, dati:{titolo,descrizione,tasks}} — unwrap
+  const data = raw.dati || raw;
+
+  const title = data.title || data.titolo || raw.title || raw.titolo || 'Progetto Senza Titolo';
+  const desc  = data.desc  || data.descrizione || raw.desc || raw.text || '';
+  const status = raw.status || data.status || 'todo';
+  const id = raw.id || data.id || `proj_${Date.now()}`;
 
   // Supporto alle task annidate: possono arrivare da n8n come array
   let tasks = [];
