@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Mic, Send, Loader2, Kanban, StickyNote, AlertCircle, RefreshCw, LogOut, Users, Shield, ShieldOff } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = 'https://niamarketing.app.n8n.cloud/webhook-test/task-manager';
+const N8N_WEBHOOK_URL = 'https://niamarketing.app.n8n.cloud/webhook/task-manager';
 const API_BASE = 'https://aitodo-production-4145.up.railway.app/api';
 
 export default function App() {
