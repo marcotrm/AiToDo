@@ -17,6 +17,11 @@ const JWT_SECRET = 'antigravity_super_secret_key_123';
 const DB_FILE = process.env.DB_PATH || '/data/antigravity_db.json';
 
 function readDB() {
+  // Crea la directory se non esiste (es. prima che il Volume sia montato)
+  const dir = path.dirname(DB_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   if (!fs.existsSync(DB_FILE)) {
     const init = { users: [], projects: [], notes: [] };
     fs.writeFileSync(DB_FILE, JSON.stringify(init, null, 2));
