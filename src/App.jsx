@@ -117,6 +117,108 @@ function Login({ onLogin }) {
 }
 
 // ==========================================
+// MODAL DETTAGLIO PROGETTO
+// ==========================================
+function ProjectModal({ project, canEdit, apiBase, onClose }) {
+  const [tasks, setTasks] = useState(project.tasks || []);
+  const [newTask, setNewTask] = useState('');
+
+  const statusLabels = { todo: 'Da Fare', in_progress: 'In Corso', done: 'Fatto' };
+  const statusColors = { 
+    todo: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+    in_progress: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    done: 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+  };
+
+  const cycleStatus = async (taskId) => {
+    const cycle = { todo: 'in_progress', in_progress: 'done', done: 'todo' };
+    const updated = tasks.map(t => t.id === taskId ? { ...t, status: cycle[t.status] } : t);
+    setTasks(updated);
+    if (apiBase) {
+      const newStatus = cycle[tasks.find(t => t.id === taskId)?.status];
+      await fetch(`${apiBase.replace('/api', '')}/api/projects/${project.id}/tasks/${taskId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+    }
+  };
+
+  const addTask = () => {
+    if (!newTask.trim()) return;
+    const task = { id: `task_${Date.now()}`, title: newTask.trim(), status: 'todo' };
+    setTasks(prev => [...prev, task]);
+    setNewTask('');
+    // Salva nel DB aggiornando il progetto
+    fetch(`${apiBase}/projects.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: project.id, title: project.title, desc: project.desc, status: project.status, tasks: [...tasks, task] })
+    });
+  };
+
+  const done = tasks.filter(t => t.status === 'done').length;
+  const pct = tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#0d1117] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-6 border-b border-white/5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-white mb-1">{project.title}</h2>
+              {project.desc && <p className="text-sm text-slate-400">{project.desc}</p>}
+            </div>
+            <button onClick={onClose} className="text-slate-500 hover:text-white text-xl shrink-0">✕</button>
+          </div>
+          {/* Progress Bar */}
+          {tasks.length > 0 && (
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-slate-500 mb-1.5">
+                <span>{done}/{tasks.length} completate</span>
+                <span className="text-cyan-400 font-mono">{pct}%</span>
+              </div>
+              <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-400 to-violet-500 rounded-full transition-all duration-700" style={{width: `${pct}%`}} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Task List */}
+        <div className="p-6 max-h-72 overflow-y-auto custom-scrollbar space-y-2">
+          {tasks.length === 0 && <p className="text-slate-500 text-sm text-center py-4">Nessuna task — aggiungine una!</p>}
+          {tasks.map(task => (
+            <div key={task.id} className="flex items-center gap-3 p-3 bg-white/[0.03] rounded-xl border border-white/5 group">
+              <button
+                onClick={() => canEdit && cycleStatus(task.id)}
+                className={`shrink-0 px-2 py-0.5 text-[10px] font-mono uppercase rounded-lg border transition-all ${statusColors[task.status]} ${canEdit ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+              >
+                {statusLabels[task.status]}
+              </button>
+              <span className={`flex-1 text-sm ${task.status === 'done' ? 'line-through text-slate-500' : 'text-white/90'}`}>{task.title}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Aggiungi Task */}
+        {canEdit && (
+          <div className="p-4 border-t border-white/5 flex gap-2">
+            <input
+              value={newTask}
+              onChange={e => setNewTask(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addTask()}
+              placeholder="Aggiungi una task..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-cyan-500/50"
+            />
+            <button onClick={addTask} className="px-4 py-2 bg-gradient-to-br from-cyan-500 to-violet-600 rounded-xl text-sm font-medium hover:opacity-90">+</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // DASHBOARD PRINCIPALE
 // ==========================================
 function Dashboard({ user, logout }) {
@@ -132,6 +234,7 @@ function Dashboard({ user, logout }) {
 
   // State per il mini pannello Admin
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   const startRecording = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -325,14 +428,26 @@ function Dashboard({ user, logout }) {
                         key={task.id}
                         draggable={canEdit}
                         onDragStart={(e) => onDragStart(e, task.id)}
-                        className={`p-4 bg-white/[0.04] border border-white/5 backdrop-blur-md rounded-xl transition-all duration-300 group ${canEdit ? 'hover:bg-white/[0.08] hover:border-white/10 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg' : 'opacity-80'}`}
+                        onClick={() => setSelectedProject(task)}
+                        className={`p-4 bg-white/[0.04] border border-white/5 backdrop-blur-md rounded-xl transition-all duration-300 group cursor-pointer ${canEdit ? 'hover:bg-white/[0.08] hover:border-white/10 hover:-translate-y-1 hover:shadow-lg' : 'opacity-80'}`}
                       >
                         <h4 className="text-[15px] font-medium text-white mb-2 leading-tight">{task.title}</h4>
-                        <p className="text-[13px] text-slate-400 font-light leading-relaxed whitespace-pre-wrap">{task.desc}</p>
-                        <div className="mt-4 w-full h-[3px] bg-slate-800/50 rounded-full overflow-hidden opacity-40">
-                          {col.id === 'in_progress' && <div className="h-full w-1/2 bg-cyan-400 rounded-full animate-pulse" />}
-                          {col.id === 'done' && <div className="h-full w-full bg-violet-500 rounded-full" />}
-                        </div>
+                        <p className="text-[13px] text-slate-400 font-light leading-relaxed line-clamp-2">{task.desc}</p>
+                        {/* Progress bar basata sulle task interne */}
+                        {Array.isArray(task.tasks) && task.tasks.length > 0 && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+                              <span>{task.tasks.filter(t => t.status === 'done').length}/{task.tasks.length} task</span>
+                              <span>{Math.round((task.tasks.filter(t => t.status === 'done').length / task.tasks.length) * 100)}%</span>
+                            </div>
+                            <div className="w-full h-[3px] bg-slate-800/50 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-cyan-400 to-violet-500 rounded-full transition-all duration-500"
+                                style={{width: `${Math.round((task.tasks.filter(t => t.status === 'done').length / task.tasks.length) * 100)}%`}}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -368,6 +483,16 @@ function Dashboard({ user, logout }) {
       {/* Modal Admin Panel */}
       {isCapo && showAdminPanel && (
         <AdminPanel onClose={() => setShowAdminPanel(false)} />
+      )}
+
+      {/* Modal Dettaglio Progetto */}
+      {selectedProject && (
+        <ProjectModal
+          project={selectedProject}
+          canEdit={canEdit}
+          apiBase={API_BASE}
+          onClose={() => { setSelectedProject(null); importDataFromDB(); }}
+        />
       )}
     </div>
   );

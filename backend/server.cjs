@@ -119,15 +119,48 @@ app.post('/api/projects.php', (req, res) => {
   const status = data.status || 'todo';
   const id = data.id || `proj_${Date.now()}`;
 
+  // Supporto alle task annidate: possono arrivare da n8n come array
+  let tasks = [];
+  if (Array.isArray(data.tasks)) {
+    tasks = data.tasks.map((t, i) => ({
+      id: t.id || `task_${Date.now()}_${i}`,
+      title: t.titolo || t.title || t,
+      status: t.status || 'todo'
+    }));
+  } else if (Array.isArray(data.dati?.tasks)) {
+    tasks = data.dati.tasks.map((t, i) => ({
+      id: t.id || `task_${Date.now()}_${i}`,
+      title: t.titolo || t.title || t,
+      status: t.status || 'todo'
+    }));
+  }
+
   const db = readDB();
   const idx = db.projects.findIndex(p => p.id === id);
   if (idx >= 0) {
-    db.projects[idx] = { id, title, desc, status };
+    // Aggiorna mantenendo i task esistenti se non ne arrivano di nuovi
+    db.projects[idx] = { 
+      id, title, desc, status, 
+      tasks: tasks.length > 0 ? tasks : (db.projects[idx].tasks || [])
+    };
   } else {
-    db.projects.push({ id, title, desc, status });
+    db.projects.push({ id, title, desc, status, tasks });
   }
   writeDB(db);
   res.json({ success: true, id });
+});
+
+// Aggiorna lo stato di un singolo task dentro un progetto
+app.put('/api/projects/:projectId/tasks/:taskId', (req, res) => {
+  const { status } = req.body;
+  const db = readDB();
+  const proj = db.projects.find(p => p.id === req.params.projectId);
+  if (!proj) return res.status(404).json({ error: 'Progetto non trovato' });
+  const task = (proj.tasks || []).find(t => t.id === req.params.taskId);
+  if (!task) return res.status(404).json({ error: 'Task non trovata' });
+  task.status = status;
+  writeDB(db);
+  res.json({ success: true });
 });
 
 // ==========================================
