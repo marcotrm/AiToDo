@@ -11,16 +11,19 @@ app.use(express.urlencoded({ extended: true }));
 
 const JWT_SECRET = 'antigravity_super_secret_key_123';
 
-// @libsql/client supporta sia file locali che Turso cloud
-// In produzione (Railway) il path sarà /app/backend/data.sqlite (grazie al Volume)
-const DB_URL = process.env.DATABASE_URL || `file:${path.resolve(__dirname, 'data.sqlite')}`;
+// Railway inietta PORT automaticamente, il fallback è per sviluppo locale
+const PORT = process.env.PORT || 8000;
+
+// Path database: Railway usa /tmp per filesystem temporaneo senza Volume
+// Con Volume Railway monta su /app/backend - viene rilevato automaticamente
+const DB_PATH = process.env.DATABASE_URL || `file:/tmp/data.sqlite`;
 
 let db;
 
 async function initDB() {
   // Importazione dinamica ESM da CJS
   const { createClient } = await import('@libsql/client');
-  db = createClient({ url: DB_URL });
+  db = createClient({ url: DB_PATH });
 
   // Inizializzazione tabelle
   await db.execute(`CREATE TABLE IF NOT EXISTS projects (
@@ -44,8 +47,12 @@ async function initDB() {
     can_edit INTEGER DEFAULT 0
   )`);
 
-  console.log(`✅ Database connesso: ${DB_URL}`);
+  console.log(`✅ Database connesso: ${DB_PATH}`);
 }
+
+// Health check per Railway (obbligatorio)
+app.get('/', (req, res) => res.json({ status: 'ok', service: 'Antigravity API', version: '1.0' }));
+app.get('/health', (req, res) => res.json({ status: 'healthy' }));
 
 // ==========================================
 // AUTH APIs
@@ -192,9 +199,9 @@ app.post('/api/tasks.php', async (req, res) => {
 // ==========================================
 const PORT = process.env.PORT || 8000;
 initDB().then(() => {
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Antigravity Backend in ascolto su porta ${PORT}`);
-    console.log(`📂 Database: ${DB_URL}`);
+    console.log(`📂 Database: ${DB_PATH}`);
   });
 }).catch(err => {
   console.error('❌ Errore avvio database:', err);
