@@ -11,7 +11,8 @@ RUN npm install --omit=dev express cors bcryptjs jsonwebtoken
 # Copia il file server
 COPY backend/server.cjs ./backend/server.cjs
 
-# Railway usa port 8181 (configurata nel servizio)
+# Forziamo la porta 8181 come configurato in Railway
+ENV PORT=8181
 EXPOSE 8181
 
 CMD ["node", "backend/server.cjs"]
