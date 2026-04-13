@@ -154,7 +154,7 @@ app.post('/api/tasks.php', (req, res) => {
 // ==========================================
 // AVVIO SERVER
 // ==========================================
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8181;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Antigravity Backend avviato su porta ${PORT}`);
   console.log(`📂 Database JSON: ${DB_FILE}`);
