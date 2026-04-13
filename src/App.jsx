@@ -308,29 +308,34 @@ function Dashboard({ user, logout }) {
 
     try {
       if (N8N_WEBHOOK_URL) {
-        await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: inputText, text: inputText, content: inputText }), // Ridondanza per evitare errori n8n se il parametro differisce
-        });
-        setTimeout(() => importDataFromDB(), 2500);
+        // Timeout di 10s: se n8n non risponde, salviamo direttamente
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: inputText, text: inputText, content: inputText }),
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          setTimeout(() => importDataFromDB(), 2500);
+        } catch (n8nErr) {
+          clearTimeout(timeout);
+          // Fallback: salva direttamente senza AI
+          console.warn('n8n non raggiungibile, salvo direttamente:', n8nErr.name);
+          const demoTask = { id: `proj_${Date.now()}`, title: inputText.substring(0, 50), desc: inputText, status: 'todo', tasks: [] };
+          await fetch(API_BASE + '/projects.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(demoTask) });
+          importDataFromDB();
+        }
       } else {
-        await new Promise(r => setTimeout(r, 1000));
-        const demoTask = {
-          id: `proj_${Date.now()}`,
-          title: inputText.substring(0, 20) + (inputText.length > 20 ? '...' : ''),
-          desc: inputText,
-          status: 'todo'
-        };
-        await fetch(API_BASE + '/projects.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(demoTask)
-        });
+        const demoTask = { id: `proj_${Date.now()}`, title: inputText.substring(0, 50), desc: inputText, status: 'todo', tasks: [] };
+        await fetch(API_BASE + '/projects.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(demoTask) });
         importDataFromDB();
       }
       setInputText('');
     } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
