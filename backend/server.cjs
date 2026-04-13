@@ -11,9 +11,6 @@ app.use(express.urlencoded({ extended: true }));
 
 const JWT_SECRET = 'antigravity_super_secret_key_123';
 
-// Railway inietta PORT automaticamente, il fallback è per sviluppo locale
-const PORT = process.env.PORT || 8000;
-
 // Path database: Railway usa /tmp per filesystem temporaneo senza Volume
 // Con Volume Railway monta su /app/backend - viene rilevato automaticamente
 const DB_PATH = process.env.DATABASE_URL || `file:/tmp/data.sqlite`;
