@@ -1,6 +1,5 @@
 [build]
-builder = "nixpacks"
-buildCommand = "npm install --production=false"
+builder = "dockerfile"
 
 [deploy]
 startCommand = "node backend/server.cjs"
