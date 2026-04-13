@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Mic, Send, Loader2, Kanban, StickyNote, AlertCircle, RefreshCw, LogOut, Users, Shield, ShieldOff } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = 'https://niamarketing.app.n8n.cloud/webhook/task-manager';
-const N8N_WEBHOOK_TEST = 'https://niamarketing.app.n8n.cloud/webhook-test/task-manager';
 const API_BASE = 'https://aitodo-production-4145.up.railway.app/api';
+const N8N_WEBHOOK_URL = `${API_BASE}/n8n`; // Proxy Railway → evita CORS
+const N8N_WEBHOOK_TEST = 'https://niamarketing.app.n8n.cloud/webhook-test/task-manager'; // fallback test
 
 export default function App() {
   return (

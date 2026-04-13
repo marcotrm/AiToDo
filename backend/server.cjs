@@ -42,6 +42,22 @@ function writeDB(data) {
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'Antigravity API', version: '2.0' }));
 app.get('/health', (req, res) => res.json({ status: 'healthy', db: DB_FILE }));
 
+// Proxy verso n8n — evita CORS dal browser
+app.post('/api/n8n', async (req, res) => {
+  const N8N_URL = 'https://niamarketing.app.n8n.cloud/webhook/task-manager';
+  try {
+    const response = await fetch(N8N_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const text = await response.text();
+    res.status(response.status).send(text);
+  } catch (err) {
+    res.status(502).json({ error: 'n8n non raggiungibile', detail: err.message });
+  }
+});
+
 // ==========================================
 // AUTH APIs
 // ==========================================
