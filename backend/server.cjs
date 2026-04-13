@@ -12,8 +12,9 @@ app.use(express.urlencoded({ extended: true }));
 
 const JWT_SECRET = 'antigravity_super_secret_key_123';
 
-// DB su file JSON — zero dipendenze native, funziona ovunque
-const DB_FILE = process.env.DB_PATH || path.join('/tmp', 'antigravity_db.json');
+// /data è il Volume persistente su Railway (configura il mount path su /data)
+// fallback su /tmp per sviluppo locale
+const DB_FILE = process.env.DB_PATH || '/data/antigravity_db.json';
 
 function readDB() {
   if (!fs.existsSync(DB_FILE)) {
